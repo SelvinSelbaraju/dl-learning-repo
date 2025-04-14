@@ -19,7 +19,7 @@ class PatchEmbed(nn.Module):
     def __init__(
         self,
         img_size: int,
-        patch_size: int = 2,
+        patch_size: int = 4,
         in_channels: int = 3,
         embedding_dim: int = 96,
         use_bias: bool = True,

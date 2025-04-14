@@ -8,13 +8,13 @@ def test_patch_embed():
     shape = (1,3,16,16)
     input = torch.zeros(shape)
 
-    layer = PatchEmbed(img_size=16, patch_size=2, in_channels=3, embedding_dim=96, use_bias=False)
+    layer = PatchEmbed(img_size=16, patch_size=4, in_channels=3, embedding_dim=96, use_bias=False)
     output = layer(input).detach().numpy()
     np.testing.assert_array_equal(
         output,
         torch.zeros((
             1,
-            64,
+            16,
             96
         )).detach().numpy()
     )
@@ -25,10 +25,10 @@ def test_patch_merge():
     shape = (1,3,16,16)
     input = torch.zeros(shape)
 
-    embed_layer = PatchEmbed(img_size=16, patch_size=2, in_channels=3, embedding_dim=96, use_bias=False)
+    embed_layer = PatchEmbed(img_size=16, patch_size=4, in_channels=3, embedding_dim=96, use_bias=False)
     embed = embed_layer(input).detach()
 
-    merge_layer = PatchMerge(8, 96, 192)
+    merge_layer = PatchMerge(4, 96, 192)
     result = merge_layer(embed).detach().numpy()
-    assert result.shape == (1, 16, 192)
+    assert result.shape == (1, 4, 192)
 
