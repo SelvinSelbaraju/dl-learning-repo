@@ -58,7 +58,61 @@ class PatchEmbed(nn.Module):
         return (self.patch_size**2 * self.in_channels) * self.embedding_dim * num_patches
 
         
+class PatchMerge(nn.Module):
+    """
+    Layer that merges patch embeddings and projects them to a new dimension.
+    This layer merges 4 patches into one.
+    """
+    def __init__(
+        self,
+        input_resolution: int,
+        input_patch_dim: int,
+        projection_dim: int,
+        use_bias: bool = False,
+    ):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.input_patch_dim = input_patch_dim
+        self.projection_dim = projection_dim
+        self.use_bias = use_bias
+        # Multiply 4 as 4 patches
+        self.proj = nn.Linear(input_patch_dim * 4, projection_dim, bias=use_bias)
+    
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Expects B x (H*W) x C
+        Returns B x (H*W/4) x 2C
+        """
+        B, NUM_PATCHES, CHANNELS = x.shape
+        # Check that x has the right shape
+        assert (len(x.shape) == 3 and NUM_PATCHES == self.input_resolution**2 and CHANNELS == self.input_patch_dim), f"Expected {B} x {NUM_PATCHES} x {CHANNELS}, got {x.shape}"
+
+        # View as a 4D tensor, so can append together
+        # Eg. x0 has the 1st patch, then the 5th patch
+        # x1 has the 2nd patch, the 6th patch etc
+        # Concat in the last dimension puts the 1st patch in the same row as the second patch etc
+        x = x.view(B, self.input_resolution, self.input_resolution, CHANNELS)
+        x0 = x[:, 0::2, 0::2, :] # B x H/2 x W/2 x C
+        x1 = x[:, 1::2, 0::2, :] # B x H/2 x W/2 x C
+        x2 = x[:, 0::2, 1::2, :] # B x H/2 x W/2 x C
+        x3 = x[:, 1::2, 1::2, :] # B x H/2 x W/2 x C
+
+        # Combine the patches together and reduce back to 3D
+        x = torch.cat([x0, x1, x2, x3], -1) # B x H/2 x W/2 x 4C
+        x = x.view((B, -1, 4*self.input_patch_dim)) # B x (H/2 * W/2) x 4C
+
+        return self.proj(x) # B x (H/2 * W/2) x 2C
+
+
+    def flops(self) -> int:
+        # We have self.input_resolution**2 patches, each with a dimension of C
+        # We end up with (self.input_resolution**2) / 4 patches, each with a dimension of 2C
+        # So like a neural net with input dimension 4C, output dimension 2C, reduced patches
+        num_merged_patches = self.input_resolution **2 / 4
+        # If we are using the bias, then there is an additional input
+        neural_net_flops = (4*self.input_patch_dim + int(self.use_bias)) * self.projection_dim
+        return num_merged_patches * neural_net_flops
 
 
     
