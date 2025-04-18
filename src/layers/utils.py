@@ -41,7 +41,7 @@ class PatchEmbed(nn.Module):
         assert (H,W) == self.img_resolution, f"Images must have shape {self.img_resolution}, got ({H},{W})"
 
         # Conv2D returns B x embedding_dim x (H/patch_size) x (W / patch_size)
-        # We want B x (HW/patch_size) x embedding_dim so have 1 embedding row per patch
+        # We want B x (HW/patch_size^2) x embedding_dim so have 1 embedding row per patch
         # Therefore we flatten the last 2 dimensions into 1, swap embedding_dim with it.
         return self.layer(x).flatten(2).transpose(1,2)
 
@@ -114,5 +114,27 @@ class PatchMerge(nn.Module):
         neural_net_flops = (4*self.input_patch_dim + int(self.use_bias)) * self.projection_dim
         return num_merged_patches * neural_net_flops
 
+
+class WindowSplitter(nn.Module):
+    """
+    Split a batch of embeddings as a 2d representation into the per window embeddings on a 2D basis
+
+    B x H x W C -> (B x num_windows) x window_size x window_size x C
+    """
+    def __init__(self, input_resolution: int, embedding_dim: int, window_size: int):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.embedding_dim = embedding_dim
+        self.window_size = window_size
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, H, W, C = x.shape
+
+        assert H == W == self.input_resolution
+        assert C == self.embedding_dim
+
+        x = x.view(B, H // self.window_size, self.window_size, W // self.window_size, self.window_size, C)
+        windows = x.permute(0,1,3,2,4,5).reshape(-1, self.window_size, self.window_size, C)
+        return windows
 
     
