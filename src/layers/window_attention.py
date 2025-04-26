@@ -46,6 +46,50 @@ class WindowSelfAttention(nn.Module):
         self.proj_dropout = nn.Dropout(proj_dropout_rate)
     
 
+    def _get_qkv(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Project the windows to QKV and reshape so its [Q,K,V] for each head
+
+        Input: (B x H/M x W/M) x M**2 x C
+        Output: 3 x (B x H/M x W/M) x HEADS x M**2 x C/HEADS
+        """
+        B_, N, C = x.shape()
+        qkv = self.qkv(x)
+        return qkv.reshape(B_, N, 3, self.num_heads, self.head_dim).permute(2,0,3,1,4)
+    
+
+    def _self_attention(self, qkv: torch.Tensor) -> torch.Tensor:
+        """
+        Given the tensor container qkv, split it and perform multi-headed self-attention.
+        Then concatenate all the heads outputs together.
+
+        Input: 3 x (B x H/M x W/M) x HEADS x M**2 x C/HEADS
+        Output: (B x H/M x W/M) x M**2 x C
+        """
+        THREE, B_, HEADS, N, C_HEADS = qkv.shape
+        q,k,v = qkv[0], qkv[1], qkv[2]
+        attention_weights = (q @ k.transpose(-2,-1)) * self.head_dim**-0.5
+        attention_weights = self.softmax(attention_weights)
+        attention_weights = self.attention_dropout(attention_weights)
+        # Need to put the head dim next to the embedding dim and flatten it.
+        # I.e we need to get the updated representation in each head for each patch, together before we flatten it
+        # The projection layer runs on a per patch basis.
+        return (attention_weights @ v).tranpose(1,2).view((B_, N, -1))
+    
+
+    def _linear_projection(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Given the concatenated heads, project to the same dimension to mix head information.
+
+        Input: (B x H/M x W/M) x M**2 x C
+        Output: (B x H/M x W/M) x M**2 x C
+        """
+        x = self.proj(x)
+        return self.proj_dropout(x)
+
+
+
+    
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Input: (B x H/M x W/M) x M**2 x C
@@ -53,19 +97,9 @@ class WindowSelfAttention(nn.Module):
         """
         # N === M**2 here
         B_, N, C = x.shape()
-        qkv = self.qkv(x).view(B_, N, 3, self.num_heads, self.head_dim).permute(2,0,3,1,4)
-        q,k,v = qkv[0], qkv[1], qkv[2]
-
-        # Attention
-        attention_weights = (q @ k.transpose(-2,-1)) * self.head_dim**-0.5
-        attention_weights = self.softmax(attention_weights)
-        attention_weights = self.attention_dropout(attention_weights)
-        # Need to put the head dim next to the embedding dim and flatten it.
-        # I.e we need to get the updated representation in each head for each patch, together before we flatten it
-        # The projection layer runs on a per patch basis.
-        x = (attention_weights @ v).tranpose(1,2).view((B_, N, -1))
-        x = self.proj(x)
-        x = self.proj_dropout(x)
+        qkv = self._get_qkv(x)
+        x = self._self_attention(qkv)
+        x = self._linear_projection(x)
         return x
 
 
