@@ -15,6 +15,8 @@ class PatchEmbed(nn.Module):
         How many input channels the images have. Usually 3 for RGB.
     embedding_dim: int
         The dimension of patch embeddings.
+    use_bias: bool
+        Whether each output channel has a bias added to it.
     """
     def __init__(
         self,
