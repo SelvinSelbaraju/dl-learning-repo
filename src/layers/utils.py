@@ -121,7 +121,7 @@ class WindowSplitter(nn.Module):
     """
     Split a batch of embeddings as a 2d representation into the per window embeddings on a 2D basis
 
-    B x H x W C -> (B x num_windows) x window_size x window_size x C
+    B x H x W C -> (B x num_windows) x window_size**2 x C
     """
     def __init__(self, input_resolution: int, embedding_dim: int, window_size: int):
         super().__init__()
@@ -136,7 +136,62 @@ class WindowSplitter(nn.Module):
         assert C == self.embedding_dim
 
         x = x.view(B, H // self.window_size, self.window_size, W // self.window_size, self.window_size, C)
-        windows = x.permute(0,1,3,2,4,5).reshape(-1, self.window_size, self.window_size, C)
+        windows = x.permute(0,1,3,2,4,5).reshape(-1, self.window_size*self.window_size, C)
         return windows
+
+
+class WindowJoiner(nn.Module):
+    """
+    Turn windows of embeddings back into a stack of patch embeddings.
+
+    Input: (B x H/M x W/M) x M**2 x C
+    Output: B x (H x W) x C 
+    """
+    def __init__(
+        self,
+        input_resolution: int,
+        embedding_dim: int,
+        window_size: int,
+    ):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.embedding_dim = embedding_dim
+        self.window_size = window_size
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B_, N, C = x.shape
+        ir_ = self.input_resolution // self.window_size
+        # Split out the dimensions so we can permute them
+        x = x.view((-1, ir_, ir_, self.window_size, self.window_size, self.embedding_dim))
+        x = x.permute(0,1,3,2,4,5).reshape((-1, self.input_resolution**2, C))
+        return x
+
+
+class MLP(nn.Module):
+    """
+    Standard MLP layer seen in transformers.
+    Applies the same MLP to each embedding.
+    Projects to a larger hidden dim, then back to original input dim.
+
+    Input: B x (H x W) x IN_DIM
+    Output: B x (H x W) x IN_DIM
+    """
+    def __init__(
+        self,
+        in_dim: int,
+        hidden_dim: int,
+        activation: nn.Module = nn.GELU
+    ):
+        super().__init__()
+        self.layer1 = nn.Linear(in_dim, hidden_dim)
+        self.layer2 = nn.Linear(hidden_dim, in_dim)
+        self.activation = activation()
+    
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.activation(self.layer1(x))
+        x = self.activation(self.layer2(x))
+        return x
+
 
     
