@@ -121,7 +121,7 @@ class WindowSplitter(nn.Module):
     """
     Split a batch of embeddings as a 2d representation into the per window embeddings on a 2D basis
 
-    B x H x W C -> (B x num_windows) x window_size**2 x C
+    B x H x W x C -> (B x num_windows) x window_size**2 x C
     """
     def __init__(self, input_resolution: int, embedding_dim: int, window_size: int):
         super().__init__()
