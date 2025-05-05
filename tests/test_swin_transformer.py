@@ -11,7 +11,7 @@ block = SwinTransformerBlock(
 )
 
 def test_block():
-    example_image = torch.ones((1,224,224,96))
+    example_image = torch.ones((1,224**2,96))
     output = block(example_image)
     # Input shape == output shape
     assert example_image.shape == output.shape

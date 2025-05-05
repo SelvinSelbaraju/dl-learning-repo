@@ -183,6 +183,8 @@ class MLP(nn.Module):
         activation: nn.Module = nn.GELU
     ):
         super().__init__()
+        self.in_dim = in_dim
+        self.hidden_dim = hidden_dim
         self.layer1 = nn.Linear(in_dim, hidden_dim)
         self.layer2 = nn.Linear(hidden_dim, in_dim)
         self.activation = activation()
@@ -192,6 +194,13 @@ class MLP(nn.Module):
         x = self.activation(self.layer1(x))
         x = self.activation(self.layer2(x))
         return x
+
+
+    def flops(self) -> int:
+        total = 0
+        total += (self.in_dim+1)*self.hidden_dim
+        total += (self.hidden_dim+1)*self.in_dim
+        return total
 
 
     

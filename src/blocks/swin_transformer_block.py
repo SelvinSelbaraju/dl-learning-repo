@@ -60,14 +60,20 @@ class SwinTransformerBlock(nn.Module):
     
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B,NUM_PATCHES,C = x.shape
+        assert self.input_resolution**2 == NUM_PATCHES
         shortcut = x
         x = self.norm1(x)
+        x = x.view((B, self.input_resolution, self.input_resolution, C))
         x = self.window_splitter(x)
         x = self.window_attention(x)
         x = self.window_joiner(x)
-        x = x.view((-1, self.input_resolution, self.input_resolution, self.embedding_dim))
         x = shortcut + x
 
         # FFN
         x = x + self.mlp(self.norm2(x))
         return x
+
+
+    def flops(self) -> int:
+        return self.window_attention.flops() + self.mlp.flops()
