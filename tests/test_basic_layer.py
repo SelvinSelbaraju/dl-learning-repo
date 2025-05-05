@@ -11,7 +11,7 @@ def test_basic_layer():
         embedding_dim=96,
         hidden_dim=4*96,
         window_size=2,
-        num_heads=4,
+        num_heads=3,
         depth=6,
         downsample_layer=PatchMerge(56,96,2*96)
     )

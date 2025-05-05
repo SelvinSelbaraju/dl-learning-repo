@@ -78,4 +78,5 @@ class SwinTransformerBlock(nn.Module):
 
 
     def flops(self) -> int:
-        return self.window_attention.flops() + self.mlp.flops()
+        num_windows = (self.input_resolution/self.window_size)**2
+        return num_windows * self.window_attention.flops() + self.mlp.flops()

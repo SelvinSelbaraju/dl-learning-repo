@@ -134,7 +134,7 @@ class WindowSelfAttention(nn.Module):
 
     def flops(self) -> int:
         """
-        Calculate the FLOPs for this layer for batch size 1.
+        Calculate the FLOPs for this layer for batch size 1 for a single window.
         The FLOPs are made up of:
         1. Projecting from C to 3C
         2. Dividing Q by a constant 
@@ -144,28 +144,20 @@ class WindowSelfAttention(nn.Module):
 
         Softmax is ommitted here.
         """
+        total = 0
         # Every patch has an embedding (H * W patches)
         # Each of these goes from C with a bias to 3C
-        qkv_proj = self.input_resolution[0] * self.input_resolution[1] * (self.embedding_dim+1) * (self.embedding_dim*3)
-        # Divide Q, which has total dimension C for each patch embedding
-        divide_q = self.input_resolution[0] * self.input_resolution[1] * self.embedding_dim
+        total  += self.window_size**2 * (self.embedding_dim+1) * (self.embedding_dim*3)
         # There are HW/M**2 windows
         # Each window has M**2 projections of dimension C for Q and K 
         # A single window for one head is (M**2 x C//NUM_HEADS) x (C//NUM_HEADS x M**2)
-        single_qkt = self.window_size**2 * self.embedding_dim//self.head_dim * self.window_size**2
-        # Dividing all the elements by a constant
-        single_qkt += single_qkt
+        total += self.num_heads * self.window_size**2 * self.embedding_dim//self.head_dim * self.window_size**2
         # Multiple qkt with v for a single head
         # That is (M**2 x M**2) x (M**2 * C//NUM_HEADS)
-        single_qkt_v = self.window_size**2 * self.window_size**2 * self.embedding_dim//self.head_dim
+        total += self.num_heads * self.window_size**2 * self.window_size**2 * self.embedding_dim//self.head_dim
         # The projection runs for every patch embedding to the same dimension (uses a bias too)
-        final_proj = self.input_resolution[0] * self.input_resolution[1] * (self.embedding_dim+1) * (self.embedding_dim)
-        return int(
-            qkv_proj +
-            divide_q +
-            self.num_heads * self.input_resolution[0] * self.input_resolution[1] / self.window_size**2 * (single_qkt + single_qkt_v) + 
-            final_proj
-        )
+        total += self.window_size**2 * (self.embedding_dim+1) * (self.embedding_dim)
+        return total
     
     
 

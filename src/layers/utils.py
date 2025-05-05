@@ -17,6 +17,9 @@ class PatchEmbed(nn.Module):
         The dimension of patch embeddings.
     use_bias: bool
         Whether each output channel has a bias added to it.
+
+    Input: B x IN_CHANNELS x H x W
+    Output: B x (H/P x W/P) x C
     """
     def __init__(
         self,

@@ -6,7 +6,7 @@ block = SwinTransformerBlock(
     input_resolution=224,
     window_size=4,
     embedding_dim=96,
-    num_heads=4,
+    num_heads=3,
     hidden_dim=96*4,
 )
 
