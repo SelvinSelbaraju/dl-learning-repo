@@ -158,6 +158,11 @@ class WindowSelfAttention(nn.Module):
         # The projection runs for every patch embedding to the same dimension (uses a bias too)
         total += self.window_size**2 * (self.embedding_dim+1) * (self.embedding_dim)
         return total
+
+
+    def num_params(self) -> int:
+        # Project from C -> 3C to Q,K,V
+        return (self.embedding_dim+1)*self.embedding_dim*3
     
     
 

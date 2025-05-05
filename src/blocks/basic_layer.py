@@ -63,4 +63,14 @@ class BasicLayer(nn.Module):
         if self.downsample_layer:
             total += self.downsample_layer.flops()
         return total
+
+
+    def num_params(self) -> int:
+        # Params come from TransformerBlocks and PatchMerging layers
+        total = 0
+        for block in self.blocks:
+            total += block.num_params()
+        if self.downsample_layer:
+            total += self.downsample_layer.num_params()
+        return total
         

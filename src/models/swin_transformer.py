@@ -113,6 +113,16 @@ class SwinTransformer(nn.Module):
         total += (self.num_features+1) * self.num_classes
         return total
 
+
+    def num_params(self) -> int:
+        # Params come from each the patch embedding + each Swin layer
+        # Also from the output head
+        total = self.patch_embed.num_params()
+        for layer in self._layers:
+            total += layer.num_params()
+        total += (self.num_features+1)*self.num_classes
+        return total
+
         
         
           

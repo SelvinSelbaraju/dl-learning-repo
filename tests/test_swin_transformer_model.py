@@ -24,3 +24,5 @@ def test_swin_transformer():
     # Swin-T has 4.5G FLOPs in the paper, minor differences here (eg. including the bias)
     # Between 1 billion and 10 billion FLOPs
     assert model.flops() > 1e9 and model.flops() < 1e10
+    # Model params is 30M in the paper
+    assert model.num_params() > 2e7 and model.num_params() < 3e7

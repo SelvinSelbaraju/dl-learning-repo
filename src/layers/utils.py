@@ -62,6 +62,13 @@ class PatchEmbed(nn.Module):
         # Do this for every patch
         return (self.patch_size**2 * self.in_channels) * self.embedding_dim * num_patches
 
+
+    def num_params(self) -> int:
+        # Kernel has size patch size
+        # Kernel has 3 input channels
+        # There are embedding_dim kernels
+        return self.patch_size**2 * self.in_channels * self.embedding_dim
+
         
 class PatchMerge(nn.Module):
     """
@@ -118,6 +125,11 @@ class PatchMerge(nn.Module):
         # If we are using the bias, then there is an additional input
         neural_net_flops = (4*self.input_patch_dim + int(self.use_bias)) * self.projection_dim
         return num_merged_patches * neural_net_flops
+
+
+    def num_params(self) -> int:
+        # Params are only from the projection
+        return (4*self.input_patch_dim+1) * self.projection_dim
 
 
 class WindowSplitter(nn.Module):
@@ -211,6 +223,11 @@ class MLP(nn.Module):
         total += (self.in_dim+1)*self.hidden_dim
         total += (self.hidden_dim+1)*self.in_dim
         return total
+
+
+    def num_params(self) -> int:
+        # Params come from the 2 projection layers
+        return (self.in_dim+1)*self.hidden_dim + (self.hidden_dim+1)*self.in_dim
 
 
     
