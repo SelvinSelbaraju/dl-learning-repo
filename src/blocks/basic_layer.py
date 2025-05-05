@@ -27,6 +27,7 @@ class BasicLayer(nn.Module):
     ):
         super().__init__()
         self.input_resolution = input_resolution
+        self.embedding_dim = embedding_dim
         self.blocks = [
             SwinTransformerBlock(
                 input_resolution=input_resolution,
@@ -45,6 +46,9 @@ class BasicLayer(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B,NUM_PATCHES,C = x.shape
         assert self.input_resolution**2 == NUM_PATCHES
+        assert self.embedding_dim == C
+        assert self.input_resolution**2 == NUM_PATCHES
+        
         for block in self.blocks:
             x = block(x)
         if self.downsample_layer:

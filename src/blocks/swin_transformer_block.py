@@ -62,6 +62,8 @@ class SwinTransformerBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B,NUM_PATCHES,C = x.shape
         assert self.input_resolution**2 == NUM_PATCHES
+        assert self.embedding_dim == C
+
         shortcut = x
         x = self.norm1(x)
         x = x.view((B, self.input_resolution, self.input_resolution, C))

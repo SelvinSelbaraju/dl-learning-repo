@@ -159,7 +159,11 @@ class WindowJoiner(nn.Module):
         self.window_size = window_size
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B_, N, C = x.shape
+        B_, M_2, C = x.shape
+        # The batch size, and number of patches in either direction should be whole numbers
+        assert (B_ / (self.input_resolution/self.window_size)**2).is_integer()
+        assert self.window_size**2 == M_2
+
         ir_ = self.input_resolution // self.window_size
         # Split out the dimensions so we can permute them
         x = x.view((-1, ir_, ir_, self.window_size, self.window_size, self.embedding_dim))
@@ -191,6 +195,9 @@ class MLP(nn.Module):
     
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B,N,C = x.shape
+        assert C == self.in_dim
+
         x = self.activation(self.layer1(x))
         x = self.activation(self.layer2(x))
         return x

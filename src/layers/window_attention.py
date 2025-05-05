@@ -118,8 +118,13 @@ class WindowSelfAttention(nn.Module):
         Input: (B x H/M x W/M) x M**2 x C
         Output: (B x H/M x W/M) x M**2 x C
         """
-        # N === M**2 here
         B_, N, C = x.shape
+        # Check there is a whole number of batch/image patches
+        assert (B_ / (self.input_resolution[0]/self.window_size)**2)
+        # N === M**2 here
+        assert self.window_size**2 == N
+        assert self.embedding_dim == C
+
         qkv = self._project_qkv(x)
         qkv = self._transform_qkv(qkv)
         x = self._self_attention(qkv)
@@ -161,7 +166,6 @@ class WindowSelfAttention(nn.Module):
             self.num_heads * self.input_resolution[0] * self.input_resolution[1] / self.window_size**2 * (single_qkt + single_qkt_v) + 
             final_proj
         )
-        
-
+    
     
 
