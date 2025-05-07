@@ -40,6 +40,8 @@ class BasicLayer(nn.Module):
             )
             for i in range(depth)
         ]
+        # Required for correct module registration
+        self.blocks = nn.ModuleList(self.blocks)
         self.downsample_layer = downsample_layer
     
 

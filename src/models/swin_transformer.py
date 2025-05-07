@@ -67,6 +67,8 @@ class SwinTransformer(nn.Module):
             )
             for i in range(self.num_layers)
         ]
+        # Required for correct module registration
+        self._layers = nn.ModuleList(self._layers)
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         self.head = nn.Linear(
             # The output size of the final SwinTransformer layer 
