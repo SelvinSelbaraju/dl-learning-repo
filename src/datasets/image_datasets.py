@@ -44,8 +44,8 @@ def get_dataloader(ds: torch.utils.data.Dataset, batch_size: int, shuffle: bool 
     """
     Return an iterable dataloader of a dataset with a specified batch size and whether to shuffle or not.
     """
-    return iter(DataLoader(
+    return DataLoader(
         ds,
         batch_size=batch_size,
         shuffle=shuffle
-    ))
+    )
