@@ -1,0 +1,22 @@
+architecture:
+  name: swin_transformer
+  kwargs:
+    input_resolution: 224
+    in_channels: 3
+    num_classes: 10
+    embedding_dim: 96
+    patch_size: 4
+    window_size: 7
+    num_heads: 3
+    mlp_ratio: 4
+    depths: [2,2,6,2]
+optimizer:
+  name: AdamW
+  lr: 0.0001
+  kwargs:
+    weight_decay: 0.1
+training:
+  train_batch_size: 32
+  val_batch_size: 32
+  shuffle_train: true
+  

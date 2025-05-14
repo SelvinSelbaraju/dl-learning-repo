@@ -125,6 +125,7 @@ class SwinTransformer(nn.Module):
         total += (self.num_features+1)*self.num_classes
         return total
 
+
         
         
           

@@ -38,14 +38,3 @@ def get_imagenette_dataset(root: str, split: str, local_preview: bool = False) -
         split=split,
         transform=create_transform(local_preview)
     )
-
-
-def get_dataloader(ds: torch.utils.data.Dataset, batch_size: int, shuffle: bool = True) -> torch.utils.data.DataLoader:
-    """
-    Return an iterable dataloader of a dataset with a specified batch size and whether to shuffle or not.
-    """
-    return DataLoader(
-        ds,
-        batch_size=batch_size,
-        shuffle=shuffle
-    )
