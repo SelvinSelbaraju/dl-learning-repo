@@ -3,6 +3,7 @@ import yaml
 import torch
 from torch import nn, optim
 import lightning as L
+from torchmetrics.classification import MulticlassAccuracy
 from src import logger
 from src.configs.config import OptimizerConfig, ConfigSnapshot
 from src.models.model_factory import ModelFactory
@@ -22,7 +23,14 @@ class LightningTrainer(L.LightningModule):
         self.optimizer_config = optimizer_config
 
         self.loss = nn.CrossEntropyLoss()
-        self.validation_step_outputs = []
+        self.running_train_loss = 0.0
+        self.running_train_row_cnt = 0
+        self.running_val_loss = 0.0
+        self.running_val_row_cnt = 0
+
+        # Metrics
+        self.train_acc = MulticlassAccuracy(num_classes=10, top_k=1)
+        self.val_acc = MulticlassAccuracy(num_classes=10, top_k=1)
     
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
@@ -32,31 +40,36 @@ class LightningTrainer(L.LightningModule):
         x, labels = batch
         outputs = self.model(x)
         loss = self.loss(outputs, labels)
-        self.log("train_loss", loss)
+        self.running_train_loss += loss.item()
+        self.running_train_row_cnt += x.size(0)
+        self.log("batch_train_loss", loss)
+        self.log("running_train_loss", self.running_train_loss / self.running_train_row_cnt)
+        self.train_acc(outputs, labels)
+        self.log("batch_accuracy", self.train_acc, on_step=True, on_epoch=False)
+        self.log("running_train_accuracy", self.train_acc.compute(), on_step=True, on_epoch=True)
         return loss
+    
+
+    def on_train_epoch_end(self):
+        self.log("epoch_train_loss", self.running_train_loss / self.running_train_row_cnt)
+        self.running_train_loss = 0.0
+        self.running_train_row_cnt = 0
 
 
     def validation_step(self, batch):
         x, labels = batch
         outputs = self.model(x)
         loss = self.loss(outputs, labels)
-        top1_class = torch.argmax(outputs, 1)
-        equality = torch.eq(top1_class, labels).to(torch.float32)
-        self.validation_step_outputs.append({"accuracy": equality, "loss": loss})
+        self.running_val_loss += loss.item()
+        self.running_val_row_cnt += x.size(0)
+        self.val_acc(outputs, labels)
+        self.log("running_validation_accuracy", self.val_acc, on_step=False, on_epoch=True)
 
 
     def on_validation_epoch_end(self):
-        accuracy = 0
-        loss = 0
-        length = 0
-        for metrics in self.validation_step_outputs:
-            accuracy += metrics["accuracy"].sum()
-            loss += metrics["loss"].sum()
-            length += metrics["accuracy"].shape[0]
-        self.log("val_loss", loss / length)
-        self.log("val_top1_accuracy", accuracy / length)
-        self.validation_step_outputs = []
-        
+        self.log("epoch_validation_loss", self.running_val_loss / self.running_val_row_cnt)
+        self.running_val_loss = 0.0
+        self.running_val_row_cnt = 0.0
 
     def configure_optimizers(self) -> optim.Optimizer:
         optimizer_cls = getattr(optim, self.optimizer_config.name)

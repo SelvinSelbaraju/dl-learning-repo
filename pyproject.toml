@@ -17,6 +17,7 @@ lightning = "^2.5.1.post0"
 tensorboard = "^2.19.0"
 pydantic = "^2.11.4"
 pyyaml = "^6.0.2"
+torchmetrics = "^1.7.1"
 
 
 [tool.poetry.group.dev.dependencies]
