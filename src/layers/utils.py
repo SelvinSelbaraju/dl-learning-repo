@@ -15,6 +15,11 @@ class PatchEmbed(nn.Module):
         How many input channels the images have. Usually 3 for RGB.
     embedding_dim: int
         The dimension of patch embeddings.
+    use_bias: bool
+        Whether each output channel has a bias added to it.
+
+    Input: B x IN_CHANNELS x H x W
+    Output: B x (H/P x W/P) x C
     """
     def __init__(
         self,
@@ -41,7 +46,7 @@ class PatchEmbed(nn.Module):
         assert (H,W) == self.img_resolution, f"Images must have shape {self.img_resolution}, got ({H},{W})"
 
         # Conv2D returns B x embedding_dim x (H/patch_size) x (W / patch_size)
-        # We want B x (HW/patch_size) x embedding_dim so have 1 embedding row per patch
+        # We want B x (HW/patch_size^2) x embedding_dim so have 1 embedding row per patch
         # Therefore we flatten the last 2 dimensions into 1, swap embedding_dim with it.
         return self.layer(x).flatten(2).transpose(1,2)
 
@@ -56,6 +61,13 @@ class PatchEmbed(nn.Module):
         # Do this for every output channel
         # Do this for every patch
         return (self.patch_size**2 * self.in_channels) * self.embedding_dim * num_patches
+
+
+    def num_params(self) -> int:
+        # Kernel has size patch size
+        # Kernel has 3 input channels
+        # There are embedding_dim kernels
+        return self.patch_size**2 * self.in_channels * self.embedding_dim
 
         
 class PatchMerge(nn.Module):
@@ -113,6 +125,109 @@ class PatchMerge(nn.Module):
         # If we are using the bias, then there is an additional input
         neural_net_flops = (4*self.input_patch_dim + int(self.use_bias)) * self.projection_dim
         return num_merged_patches * neural_net_flops
+
+
+    def num_params(self) -> int:
+        # Params are only from the projection
+        return (4*self.input_patch_dim+1) * self.projection_dim
+
+
+class WindowSplitter(nn.Module):
+    """
+    Split a batch of embeddings as a 2d representation into the per window embeddings on a 2D basis
+
+    B x H x W x C -> (B x num_windows) x window_size**2 x C
+    """
+    def __init__(self, input_resolution: int, embedding_dim: int, window_size: int):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.embedding_dim = embedding_dim
+        self.window_size = window_size
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, H, W, C = x.shape
+
+        assert H == W == self.input_resolution
+        assert C == self.embedding_dim
+
+        x = x.view(B, H // self.window_size, self.window_size, W // self.window_size, self.window_size, C)
+        windows = x.permute(0,1,3,2,4,5).reshape(-1, self.window_size*self.window_size, C)
+        return windows
+
+
+class WindowJoiner(nn.Module):
+    """
+    Turn windows of embeddings back into a stack of patch embeddings.
+
+    Input: (B x H/M x W/M) x M**2 x C
+    Output: B x (H x W) x C 
+    """
+    def __init__(
+        self,
+        input_resolution: int,
+        embedding_dim: int,
+        window_size: int,
+    ):
+        super().__init__()
+        self.input_resolution = input_resolution
+        self.embedding_dim = embedding_dim
+        self.window_size = window_size
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B_, M_2, C = x.shape
+        # The batch size, and number of patches in either direction should be whole numbers
+        assert (B_ / (self.input_resolution/self.window_size)**2).is_integer()
+        assert self.window_size**2 == M_2
+
+        ir_ = self.input_resolution // self.window_size
+        # Split out the dimensions so we can permute them
+        x = x.view((-1, ir_, ir_, self.window_size, self.window_size, self.embedding_dim))
+        x = x.permute(0,1,3,2,4,5).reshape((-1, self.input_resolution**2, C))
+        return x
+
+
+class MLP(nn.Module):
+    """
+    Standard MLP layer seen in transformers.
+    Applies the same MLP to each embedding.
+    Projects to a larger hidden dim, then back to original input dim.
+
+    Input: B x (H x W) x IN_DIM
+    Output: B x (H x W) x IN_DIM
+    """
+    def __init__(
+        self,
+        in_dim: int,
+        hidden_dim: int,
+        activation: nn.Module = nn.GELU
+    ):
+        super().__init__()
+        self.in_dim = in_dim
+        self.hidden_dim = hidden_dim
+        self.layer1 = nn.Linear(in_dim, hidden_dim)
+        self.layer2 = nn.Linear(hidden_dim, in_dim)
+        self.activation = activation()
+    
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B,N,C = x.shape
+        assert C == self.in_dim
+
+        x = self.activation(self.layer1(x))
+        x = self.activation(self.layer2(x))
+        return x
+
+
+    def flops(self) -> int:
+        total = 0
+        total += (self.in_dim+1)*self.hidden_dim
+        total += (self.hidden_dim+1)*self.in_dim
+        return total
+
+
+    def num_params(self) -> int:
+        # Params come from the 2 projection layers
+        return (self.in_dim+1)*self.hidden_dim + (self.hidden_dim+1)*self.in_dim
 
 
     

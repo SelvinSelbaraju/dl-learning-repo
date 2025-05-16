@@ -1,0 +1,27 @@
+architecture:
+  name: swin_transformer
+  kwargs:
+    input_resolution: 224
+    in_channels: 3
+    num_classes: 10
+    embedding_dim: 96
+    patch_size: 4
+    window_size: 7
+    num_heads: 3
+    mlp_ratio: 4
+    depths: [2,2,6,2]
+optimizer:
+  name: AdamW
+  lr: 0.0001
+  kwargs:
+    weight_decay: 0.1
+training:
+  train_batch_size: 32
+  val_batch_size: 32
+  shuffle_train: true
+  max_epochs: 20
+  log_every_n_steps: 5
+  checkpoint_monitor: running_validation_accuracy
+  checkpoint_mode: max
+  load_checkpoint_path: /Users/selvino/dl-learning-repo/lightning_logs/version_0/checkpoints/epoch=9-step=2960.ckpt
+  
