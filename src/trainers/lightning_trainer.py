@@ -1,11 +1,12 @@
-from typing import Tuple
+from typing import Tuple, Optional
 import yaml
 import torch
 from torch import nn, optim
 import lightning as L
+from lightning.pytorch.callbacks import Callback, ModelCheckpoint
 from torchmetrics.classification import MulticlassAccuracy
 from src import logger
-from src.configs.config import OptimizerConfig, ConfigSnapshot
+from src.configs.config import OptimizerConfig, TrainingConfig, ConfigSnapshot
 from src.models.model_factory import ModelFactory
 
 class LightningTrainer(L.LightningModule):
@@ -17,10 +18,12 @@ class LightningTrainer(L.LightningModule):
         self,
         model: nn.Module,
         optimizer_config: OptimizerConfig,
+        load_checkpoint_path: Optional[str]
     ):
         super().__init__()
         self.model = model
         self.optimizer_config = optimizer_config
+        self.load_checkpoint_path = load_checkpoint_path
 
         self.loss = nn.CrossEntropyLoss()
         self.running_train_loss = 0.0
@@ -54,6 +57,8 @@ class LightningTrainer(L.LightningModule):
         self.log("epoch_train_loss", self.running_train_loss / self.running_train_row_cnt)
         self.running_train_loss = 0.0
         self.running_train_row_cnt = 0
+        if self.checkpointer:
+            logger.info(f"Current best checkpoint path: {self.checkpointer.best_model_path}")
 
 
     def validation_step(self, batch):
@@ -76,19 +81,27 @@ class LightningTrainer(L.LightningModule):
         optimizer = optimizer_cls(self.parameters(), self.optimizer_config.lr, **self.optimizer_config.kwargs)
         logger.info(f"Optimizer Details: {optimizer}")
         return optimizer
+    
+
+    def init_checkpointer(self, training_config: TrainingConfig) -> None:
+        checkpointer = ModelCheckpoint(monitor=training_config.checkpoint_monitor, mode=training_config.checkpoint_mode) if training_config.checkpoint_monitor else None
+        self.checkpointer = checkpointer
 
 
     @classmethod
-    def create_trainer_from_config_path(cls, config_path: str) -> tuple["LightningTrainer",L.Trainer]:
+    def create_trainer_from_config_path(cls, config_path: str) -> tuple["LightningTrainer", L.Trainer]:
         with open(config_path, "r") as f:
             config = ConfigSnapshot(**yaml.safe_load(f))
         logger.info(f"Creating {config.architecture.name} with config: {config.architecture.kwargs}")
         model = ModelFactory.MODEL_CLASSES[config.architecture.name](**config.architecture.kwargs)
         logger.info(model)
-        lightning_module = cls(model, config.optimizer)
+        lightning_module = cls(model, config.optimizer, config.training.load_checkpoint_path)
+        lightning_module.init_checkpointer(config.training)
+        callbacks = [lightning_module.checkpointer] if lightning_module.checkpointer else []
         return lightning_module, L.Trainer(
             max_epochs=config.training.max_epochs,
-            log_every_n_steps=config.training.log_every_n_steps
+            log_every_n_steps=config.training.log_every_n_steps,
+            callbacks=callbacks
         )
 
 

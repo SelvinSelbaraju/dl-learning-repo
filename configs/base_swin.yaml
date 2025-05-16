@@ -19,6 +19,9 @@ training:
   train_batch_size: 32
   val_batch_size: 32
   shuffle_train: true
-  max_epochs: 10
+  max_epochs: 20
   log_every_n_steps: 5
+  checkpoint_monitor: running_validation_accuracy
+  checkpoint_mode: max
+  load_checkpoint_path: /Users/selvino/dl-learning-repo/lightning_logs/version_0/checkpoints/epoch=9-step=2960.ckpt
   

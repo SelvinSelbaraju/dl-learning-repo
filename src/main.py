@@ -1,4 +1,4 @@
-import lightning as L
+from src import logger
 from src.datasets.image_datasets import get_imagenette_dataset
 from src.datasets.dataloader_factory import DataloaderFactory
 from src.trainers.lightning_trainer import LightningTrainer
@@ -24,4 +24,5 @@ train_dataloader, val_dataloader = DataloaderFactory.get_from_config(
 lit_module, trainer = LightningTrainer.create_trainer_from_config_path(
     CONFIG_PATH
 )
-trainer.fit(lit_module, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+trainer.fit(lit_module, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader, ckpt_path=lit_module.load_checkpoint_path)
+logger.info(f"Best model checkpoint path: {lit_module.checkpointer.best_model_path}")
